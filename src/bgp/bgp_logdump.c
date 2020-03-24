@@ -37,7 +37,7 @@
 
 /* functions */
 int bgp_peer_log_msg(struct bgp_node *route, struct bgp_info *ri, afi_t afi, safi_t safi,
-		     char *event_type, int output, char **output_data, int log_type)
+		     char *event_type, int output, char **output_data, int log_type, u_int64_t subseq)
 {
   struct bgp_misc_structs *bms;
   struct bgp_peer *peer;
@@ -105,6 +105,10 @@ int bgp_peer_log_msg(struct bgp_node *route, struct bgp_info *ri, afi_t afi, saf
     }
     else if (etype == BGP_LOGDUMP_ET_DUMP) {
       json_object_set_new_nocheck(obj, "seq", json_integer((json_int_t) bgp_peer_log_seq_get(&bms->log_seq)));
+
+      if (subseq != 0) {
+          json_object_set_new_nocheck(obj, "subseq", json_integer((json_int_t) subseq));
+      }
     }
 
     if (etype == BGP_LOGDUMP_ET_LOG)
@@ -1762,7 +1766,7 @@ void bgp_handle_dump_event()
 	      for (peer_buckets = 0; peer_buckets < config.bgp_table_per_peer_buckets; peer_buckets++) {
 	        for (ri = node->info[modulo+peer_buckets]; ri; ri = ri->next) {
 		  if (ri->peer == peer) {
-	            bgp_peer_log_msg(node, ri, afi, safi, event_type, config.bgp_table_dump_output, NULL, BGP_LOG_TYPE_MISC);
+	            bgp_peer_log_msg(node, ri, afi, safi, event_type, config.bgp_table_dump_output, NULL, BGP_LOG_TYPE_MISC, dump_elems+1);
 	            dump_elems++;
 		  }
 		}

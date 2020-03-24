@@ -1154,6 +1154,7 @@ void bmp_handle_dump_event()
   struct bgp_peer *peer, *saved_peer;
   struct bmp_dump_se_ll *bdsell;
   struct bgp_peer_log peer_log;      
+  struct bgp_dump_stats bds;
 
   /* pre-flight check */
   if (!bms->dump_backend_methods || !config.bmp_dump_refresh_time)
@@ -1173,6 +1174,8 @@ void bmp_handle_dump_event()
 
     memset(last_filename, 0, sizeof(last_filename));
     memset(current_filename, 0, sizeof(current_filename));
+    memset(&peer_log, 0, sizeof(struct bgp_peer_log));
+    memset(&bds, 0, sizeof(struct bgp_dump_stats));
 
     fd_buf = malloc(OUTPUT_FILE_BUFSZ);
     bgp_peer_log_seq_set(&bms->log_seq, dump_seqno);
@@ -1336,7 +1339,7 @@ void bmp_handle_dump_event()
 		    ri->peer->log = peer->log;
 		    bms->peer_str = peer_str;
 		    bms->peer_port_str = peer_port_str;
-                    bgp_peer_log_msg(node, ri, afi, safi, event_type, config.bmp_dump_output, NULL, BGP_LOG_TYPE_MISC);
+                    bgp_peer_log_msg(node, ri, afi, safi, event_type, config.bmp_dump_output, NULL, BGP_LOG_TYPE_MISC, dump_elems+1);
 		    bms->peer_str = saved_peer_str;
 		    bms->peer_port_str = saved_peer_port_str;
                     dump_elems++;
