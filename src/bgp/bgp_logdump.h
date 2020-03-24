@@ -53,6 +53,7 @@ struct bgp_peer_log {
 struct bgp_dump_stats {
   u_int64_t entries;
   u_int32_t tables;
+  u_int32_t tables_count;
 };
 
 /* prototypes */

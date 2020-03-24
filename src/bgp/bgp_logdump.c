@@ -1425,6 +1425,8 @@ int bgp_peer_dump_close(struct bgp_peer *peer, struct bgp_dump_stats *bds, int o
       json_object_set_new_nocheck(obj, "entries", json_integer((json_int_t)bds->entries));
 
       json_object_set_new_nocheck(obj, "tables", json_integer((json_int_t)bds->tables));
+
+      json_object_set_new_nocheck(obj, "tables_count", json_integer((json_int_t)bds->tables_count));
     }
 
     json_object_set_new_nocheck(obj, "seq", json_integer((json_int_t) bgp_peer_log_seq_get(&bms->log_seq)));
@@ -1502,12 +1504,19 @@ int bgp_peer_dump_close(struct bgp_peer *peer, struct bgp_dump_stats *bds, int o
       pm_avro_check(avro_value_get_by_name(&p_avro_obj, "tables", &p_avro_field, NULL));
       pm_avro_check(avro_value_set_branch(&p_avro_field, TRUE, &p_avro_branch));
       pm_avro_check(avro_value_set_int(&p_avro_branch, bds->tables)); 
+
+      pm_avro_check(avro_value_get_by_name(&p_avro_obj, "tables_count", &p_avro_field, NULL));
+      pm_avro_check(avro_value_set_branch(&p_avro_field, TRUE, &p_avro_branch));
+      pm_avro_check(avro_value_set_int(&p_avro_branch, bds->tables_count));
     }
     else {
       pm_avro_check(avro_value_get_by_name(&p_avro_obj, "entries", &p_avro_field, NULL));
       pm_avro_check(avro_value_set_branch(&p_avro_field, FALSE, &p_avro_branch));
 
       pm_avro_check(avro_value_get_by_name(&p_avro_obj, "tables", &p_avro_field, NULL));
+      pm_avro_check(avro_value_set_branch(&p_avro_field, FALSE, &p_avro_branch));
+
+      pm_avro_check(avro_value_get_by_name(&p_avro_obj, "tables_count", &p_avro_field, NULL));
       pm_avro_check(avro_value_set_branch(&p_avro_field, FALSE, &p_avro_branch));
     }
 
@@ -1603,7 +1612,7 @@ void bgp_handle_dump_event()
   struct bgp_misc_structs *bms = bgp_select_misc_db(FUNC_TYPE_BGP);
   char current_filename[SRVBUFLEN], last_filename[SRVBUFLEN], tmpbuf[SRVBUFLEN];
   char latest_filename[SRVBUFLEN], event_type[] = "dump", *fd_buf = NULL;
-  int ret, peers_idx, duration, tables_num; 
+  int ret, peers_idx, duration, tables_num, tables_count; 
   struct bgp_rt_structs *inter_domain_routing_db;
   struct bgp_peer *peer, *saved_peer;
   struct bgp_table *table;
@@ -1658,7 +1667,11 @@ void bgp_handle_dump_event()
     dumper_pid = getpid();
     Log(LOG_INFO, "INFO ( %s/%s ): *** Dumping BGP tables - START (PID: %u) ***\n", config.name, bms->log_str, dumper_pid);
     start = time(NULL);
+
+    // "tables_num" ("tables" in output) is current table ID (1 to tables_count)
+    // "tables_count" is the total number of tables
     tables_num = 0;
+    tables_count = 0;
 
 #ifdef WITH_SERDES
     if (config.bgp_table_dump_kafka_avro_schema_registry) { 
@@ -1684,6 +1697,13 @@ void bgp_handle_dump_event()
 										   config.bgp_table_dump_kafka_avro_schema_registry);
     }
 #endif
+
+    // Count the number of tables
+    for (peers_idx = 0; peers_idx < config.bgp_daemon_max_peers; peers_idx++) {
+      if (peers[peers_idx].fd) {
+        tables_count++;
+      }
+    }
 
     for (peer = NULL, saved_peer = NULL, peers_idx = 0; peers_idx < config.bgp_daemon_max_peers; peers_idx++) {
       if (peers[peers_idx].fd) {
@@ -1783,6 +1803,7 @@ void bgp_handle_dump_event()
         strlcpy(last_filename, current_filename, SRVBUFLEN);
 	bds.entries = dump_elems;
 	bds.tables = tables_num;
+	bds.tables_count = tables_count;
         bgp_peer_dump_close(peer, &bds, config.bgp_table_dump_output, FUNC_TYPE_BGP);
       }
     }
@@ -2020,6 +2041,7 @@ avro_schema_t p_avro_schema_build_bgp_dump_close(int log_type, char *schema_name
   avro_schema_record_field_append(schema, "peer_tcp_port", optint_s);
   avro_schema_record_field_append(schema, "entries", optint_s);
   avro_schema_record_field_append(schema, "tables", optint_s);
+  avro_schema_record_field_append(schema, "tables_count", optint_s);
 
   avro_schema_decref(optlong_s);
   avro_schema_decref(optstr_s);

@@ -1141,7 +1141,7 @@ void bmp_handle_dump_event()
   struct bgp_misc_structs *bms = bgp_select_misc_db(FUNC_TYPE_BMP);
   char current_filename[SRVBUFLEN], last_filename[SRVBUFLEN], tmpbuf[SRVBUFLEN];
   char latest_filename[SRVBUFLEN], event_type[] = "dump", *fd_buf = NULL;
-  int ret, peers_idx, duration, tables_num;
+  int ret, peers_idx, duration, tables_num, tables_count;
   struct bgp_rt_structs *inter_domain_routing_db;
   struct bgp_table *table;
   struct bgp_node *node;
@@ -1198,7 +1198,11 @@ void bmp_handle_dump_event()
     dumper_pid = getpid();
     Log(LOG_INFO, "INFO ( %s/%s ): *** Dumping BMP tables - START (PID: %u) ***\n", config.name, bms->log_str, dumper_pid);
     start = time(NULL);
+
+    // "tables_num" ("tables" in output) is current table ID (1 to tables_count)
+    // "tables_count" is the total number of tables
     tables_num = 0;
+    tables_count = 0;
 
 #ifdef WITH_SERDES
     if (config.bmp_dump_kafka_avro_schema_registry) {
@@ -1249,6 +1253,13 @@ void bmp_handle_dump_event()
 											     config.bmp_dump_kafka_avro_schema_registry);
     }
 #endif
+
+    // Count the number of tables
+    for (peers_idx = 0; peers_idx < config.bmp_daemon_max_peers; peers_idx++) {
+      if (bmp_peers[peers_idx].self.fd) {
+        tables_count++;
+      }
+    }
 
     for (peer = NULL, saved_peer = NULL, peers_idx = 0; peers_idx < config.bmp_daemon_max_peers; peers_idx++) {
       if (bmp_peers[peers_idx].self.fd) {
@@ -1390,6 +1401,7 @@ void bmp_handle_dump_event()
         strlcpy(last_filename, current_filename, SRVBUFLEN);
         bds.entries = dump_elems;
         bds.tables = tables_num;
+	bds.tables_count = tables_count;
         bgp_peer_dump_close(peer, &bds, config.bmp_dump_output, FUNC_TYPE_BMP);
       }
     }
