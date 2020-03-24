@@ -1382,9 +1382,12 @@ void bmp_handle_dump_event()
 	}
  
 	saved_peer = peer;
-        strlcpy(last_filename, current_filename, SRVBUFLEN);
-        bgp_peer_dump_close(peer, NULL, config.bmp_dump_output, FUNC_TYPE_BMP);
         tables_num++;
+
+        strlcpy(last_filename, current_filename, SRVBUFLEN);
+        bds.entries = dump_elems;
+        bds.tables = tables_num;
+        bgp_peer_dump_close(peer, &bds, config.bmp_dump_output, FUNC_TYPE_BMP);
       }
     }
 
